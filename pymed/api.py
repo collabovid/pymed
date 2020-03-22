@@ -1,4 +1,5 @@
 import datetime
+import re
 import requests
 import itertools
 
@@ -169,6 +170,9 @@ class PubMed(object):
         response = self._get(
             url="/entrez/eutils/efetch.fcgi", parameters=parameters, output="xml"
         )
+
+        # Remove html markup tags (<i>, <sub>, <sup>) to prevent text truncation
+        response = re.sub("</?i>|</?su[bp]>", "", response)
 
         # Parse as XML
         root = xml.fromstring(response)
