@@ -177,6 +177,10 @@ class PubMed(object):
         # Parse as XML
         root = xml.fromstring(response)
 
+        # DEBUG:
+        with open('response.xml', 'w') as fp:
+            fp.write(response)
+
         # Loop over the articles and construct article objects
         for article in root.iter("PubmedArticle"):
             yield PubMedArticle(xml_element=article)
