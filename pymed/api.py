@@ -97,7 +97,7 @@ class PubMed(object):
 
         # Return the total number of results (without retrieving them)
         return total_results_count
-    
+
     def _exceededRateLimit(self) -> bool:
         """ Helper method to check if we've exceeded the rate limit.
 
