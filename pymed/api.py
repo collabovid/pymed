@@ -6,7 +6,7 @@ import os
 
 import xml.etree.ElementTree as xml
 
-from typing import Union
+from typing import Optional, Union
 
 from .helpers import batches
 from .article import PubMedArticle
@@ -54,7 +54,7 @@ class PubMed(object):
         self.debug_dump_xml = debug_dump_xml
 
     def query(self: object, query: str, max_results: int = 100):
-        """ Method that executes a query agains the GraphQL schema, automatically
+        """ Method that executes a query against the GraphQL schema, automatically
             inserting the PubMed data loader.
 
             Parameters:
@@ -119,14 +119,16 @@ class PubMed(object):
         return len(self._requestsMade) > self._rateLimit
 
     def _get(
-        self: object, url: str, parameters: dict, output: str = "json"
+        self: object, url: str, parameters: dict, post_data: Optional[dict] = None, output: str = "json"
     ) -> Union[dict, str]:
         """ Generic helper method that makes a request to PubMed.
 
             Parameters:
                 - url           Str, last part of the URL that is requested (will
                                 be combined with the base url)
-                - parameters    Dict, parameters to use for the request
+                - parameters    Dict, GET-parameters to use for the request
+                - post_data     Dict, POST-parameters to use for the request (defaults to None. A POST request will only
+                                be used if this parameter is not None)
                 - output        Str, type of output that is requested (defaults to
                                 JSON but can be used to retrieve XML)
 
@@ -144,7 +146,10 @@ class PubMed(object):
         parameters["retmode"] = output
 
         # Make the request to PubMed
-        response = requests.get(f"{BASE_URL}{url}", params=parameters)
+        if post_data is None:
+            response = requests.get(f"{BASE_URL}{url}", params=parameters)
+        else:
+            response = requests.post(f"{BASE_URL}{url}", params=parameters, data=post_data)
 
         # Check for any errors
         response.raise_for_status()
@@ -170,11 +175,17 @@ class PubMed(object):
 
         # Get the default parameters
         parameters = self.parameters.copy()
-        parameters["id"] = article_ids
+
+        # The EFetch API recommends to use a POST-request if more than 200 IDs are queried in a single request.
+        post_data = None
+        if len(article_ids) >= 200:
+            post_data = {"id": article_ids}
+        else:
+            parameters["id"] = article_ids
 
         # Make the request
         response = self._get(
-            url="/entrez/eutils/efetch.fcgi", parameters=parameters, output="xml"
+            url="/entrez/eutils/efetch.fcgi", parameters=parameters, post_data=post_data, output="xml"
         )
 
         if self.debug_dump_xml:
@@ -242,7 +253,7 @@ class PubMed(object):
         if max_results == -1:
             max_results = total_result_count
 
-        # If not all articles are retrieved, continue to make requests untill we have everything
+        # If not all articles are retrieved, continue to make requests until we have everything
         while retrieved_count < total_result_count and retrieved_count < max_results:
 
             # Calculate a cut off point based on the max_results parameter
